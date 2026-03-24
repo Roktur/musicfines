@@ -235,6 +235,37 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+const CustomStarIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 100 100" 
+    className={className}
+    fill="none"
+  >
+    <defs>
+      <pattern id="hatching" width="8" height="8" patternTransform="rotate(-45 0 0)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="8" stroke="white" strokeWidth="1.5" opacity="0.9" />
+      </pattern>
+    </defs>
+    
+    <path 
+      d="M50 10 L61 38 L90 40 L65 58 L73 86 L50 70 L27 86 L35 58 L10 40 L39 38 Z" 
+      fill="#FACC15" 
+      stroke="#222" 
+      strokeWidth="6" 
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+    
+    <path 
+      d="M50 10 L61 38 L90 40 L65 58 L73 86 L50 70 L27 86 L35 58 L10 40 L39 38 Z" 
+      fill="url(#hatching)" 
+    />
+    
+    <path d="M32 45 L42 35 M28 55 L48 38" stroke="#222" strokeWidth="4" strokeLinecap="round" />
+  </svg>
+);
+
 export default function App() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -605,8 +636,9 @@ export default function App() {
           </div>
 
           <div className="hidden lg:flex items-center gap-8">
-            <a href="#" className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">КАТАЛОГ</a>
-            <button onClick={() => setShowNewArrivalsModal(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">НОВЫЕ ПОСТУПЛЕНИЯ</button>
+            <button onClick={() => setShowNewArrivalsModal(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2">
+              <CustomStarIcon className="w-5 h-5" /> НОВЫЕ ПОСТУПЛЕНИЯ
+            </button>
             <button onClick={() => setShowGenresCloud(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">ЖАНРЫ</button>
           </div>
 
