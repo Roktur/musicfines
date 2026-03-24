@@ -38,7 +38,8 @@ import {
   Pencil,
   Info,
   ChevronDown,
-  ArrowUp
+  ArrowUp,
+  Cookie
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInView } from 'react-intersection-observer';
@@ -313,6 +314,7 @@ export default function App() {
   const [addError, setAddError] = useState<string | null>(null);
   const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   
   // Form State
@@ -444,6 +446,18 @@ export default function App() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const consent = localStorage.getItem('cookieConsent');
+    if (!consent) {
+      setShowCookieConsent(true);
+    }
+  }, []);
+
+  const handleAcceptCookies = () => {
+    localStorage.setItem('cookieConsent', 'true');
+    setShowCookieConsent(false);
+  };
 
   // Load more
   const loadMore = useCallback(async () => {
@@ -1459,7 +1473,9 @@ export default function App() {
         </div>
         
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">© 2026 Музыка без штрафов. Все права защищены.</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">
+            © 2026 <a href="https://vk.com/musicfines" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline underline-offset-4">Музыка без штрафов</a>. Все права защищены.
+          </p>
           <div className="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-white/20">
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
@@ -1479,6 +1495,44 @@ export default function App() {
           >
             <ArrowUp className="w-6 h-6" />
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Cookie Consent */}
+      <AnimatePresence>
+        {showCookieConsent && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:bottom-8 md:w-[400px] z-[100] bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl shadow-black/50"
+          >
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-orange-500/10 rounded-xl">
+                <Cookie className="w-6 h-6 text-orange-500" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-2">Файлы Cookie</h3>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  Мы используем файлы cookie для улучшения работы сайта, анализа трафика и персонализации контента в соответствии с законодательством РФ. Продолжая использовать сайт, вы соглашаетесь с нашей политикой.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleAcceptCookies}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-black text-[10px] font-bold uppercase tracking-widest py-3 px-4 rounded-xl transition-colors"
+              >
+                Принять
+              </button>
+              <a
+                href="#"
+                className="flex-1 text-center bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest py-3 px-4 rounded-xl transition-colors border border-white/5"
+              >
+                Подробнее
+              </a>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
