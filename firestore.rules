@@ -43,6 +43,12 @@ service cloud.firestore {
              (!('purchaseUrl' in data) || (data.purchaseUrl is string && data.purchaseUrl.size() < 1000 && (data.purchaseUrl.matches("^https://.*") || data.purchaseUrl.matches("^http://.*") || data.purchaseUrl == "")));
     }
 
+    function isValidGenre(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 50 &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
     match /albums/{albumId} {
       // Publicly readable for the storefront
       allow read: if true;
@@ -50,6 +56,13 @@ service cloud.firestore {
       // Only admins can modify the catalog
       allow create: if isAdmin() && isValidAlbum(request.resource.data);
       allow update: if isAdmin() && isValidAlbum(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /genres/{genreId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidGenre(request.resource.data);
+      allow update: if isAdmin() && isValidGenre(request.resource.data);
       allow delete: if isAdmin();
     }
   }

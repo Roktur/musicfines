@@ -1,5 +1,22 @@
 {
   "entities": {
+    "genre": {
+      "title": "Music Genre",
+      "description": "Represents a music genre category.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the genre."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time the genre was added."
+        }
+      },
+      "required": ["name"]
+    },
     "album": {
       "title": "Music Album",
       "description": "Represents a music album in the storefront.",
@@ -51,6 +68,10 @@
     "/albums/{albumId}": {
       "schema": "album",
       "description": "Collection of music albums."
+    },
+    "/genres/{genreId}": {
+      "schema": "genre",
+      "description": "Collection of music genres."
     }
   }
 }

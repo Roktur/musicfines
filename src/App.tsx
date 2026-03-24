@@ -13,11 +13,13 @@ import {
   startAfter, 
   addDoc, 
   updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
   where,
   QueryDocumentSnapshot,
-  DocumentData
+  DocumentData,
+  onSnapshot
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -34,7 +36,8 @@ import {
   Disc,
   X,
   Pencil,
-  Info
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInView } from 'react-intersection-observer';
@@ -55,7 +58,62 @@ interface Album {
   createdAt: any;
 }
 
-const GENRES = ["All", "Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"];
+const CustomSelect = ({ value, onChange, options }: { value: string, onChange: (val: string) => void, options: string[] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={selectRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors text-white flex items-center justify-between"
+      >
+        <span>{value}</span>
+        <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
+      </button>
+      
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 w-full mt-2 bg-[#111] border border-white/10 rounded-xl max-h-60 overflow-y-auto shadow-2xl"
+          >
+            {options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-3 hover:bg-white/5 transition-colors text-white",
+                  value === option && "bg-orange-500/20 text-orange-500"
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { album: Album, index: number, isAdmin: boolean, onEdit: (album: Album) => void, onSelect: (album: Album) => void }) => (
   <motion.div
@@ -185,13 +243,17 @@ export default function App() {
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
+  const [genres, setGenres] = useState<string[]>(["All", "Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"]);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddGenreModal, setShowAddGenreModal] = useState(false);
+  const [newGenreName, setNewGenreName] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   
   // Form State
@@ -220,6 +282,18 @@ export default function App() {
       if (u) {
         console.log("Logged in as:", u.email, "Admin status:", adminStatus);
       }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch genres
+  useEffect(() => {
+    const q = query(collection(db, 'genres'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedGenres = snapshot.docs.map(doc => doc.data().name);
+      setGenres(["All", ...fetchedGenres]);
+    }, (error) => {
+      console.error("Error fetching genres:", error);
     });
     return () => unsubscribe();
   }, []);
@@ -312,7 +386,7 @@ export default function App() {
     setNewAlbum({
       title: "",
       artist: "",
-      genre: "Rock",
+      genre: genres.length > 1 ? genres[1] : "",
       year: new Date().getFullYear(),
       price: 19.99,
       coverUrl: "",
@@ -321,10 +395,11 @@ export default function App() {
       tracklist: ""
     });
     setEditingAlbumId(null);
+    setShowDeleteConfirm(false);
     setImageFile(null);
     setAddError(null);
     setShowAddModal(true);
-  }, []);
+  }, [genres]);
 
   const openEditModal = useCallback((album: Album) => {
     setNewAlbum({
@@ -339,6 +414,7 @@ export default function App() {
       tracklist: album.tracklist || ""
     });
     setEditingAlbumId(album.id);
+    setShowDeleteConfirm(false);
     setImageFile(null);
     setAddError(null);
     setShowAddModal(true);
@@ -393,11 +469,69 @@ export default function App() {
     }
   };
 
+  // Handle Save Genre
+  const handleSaveGenre = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin || !newGenreName.trim()) return;
+    
+    setLoadingMore(true);
+    try {
+      await addDoc(collection(db, 'genres'), {
+        name: newGenreName.trim(),
+        createdAt: serverTimestamp()
+      }).catch(err => handleFirestoreError(err, OperationType.CREATE, 'genres'));
+      
+      setShowAddGenreModal(false);
+      setNewGenreName("");
+    } catch (error) {
+      console.error("Error adding genre:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Handle Delete Album
+  const handleDeleteAlbum = async () => {
+    if (!isAdmin || !editingAlbumId) return;
+    
+    setLoadingMore(true);
+    try {
+      await deleteDoc(doc(db, 'albums', editingAlbumId)).catch(err => handleFirestoreError(err, OperationType.DELETE, `albums/${editingAlbumId}`));
+      setShowAddModal(false);
+      setImageFile(null);
+      fetchInitialAlbums();
+    } catch (error: any) {
+      console.error("Error deleting album:", error);
+      let errorMessage = "Failed to delete album. Please check console for details.";
+      if (error instanceof Error) {
+        try {
+          const parsed = JSON.parse(error.message);
+          errorMessage = parsed.error || errorMessage;
+        } catch {
+          errorMessage = error.message;
+        }
+      }
+      setAddError(errorMessage);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   // Seed data function
   const seedData = async () => {
     if (!isAdmin) return;
     setIsSeeding(true);
     try {
+      const defaultGenres = ["Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"];
+      for (const genre of defaultGenres) {
+        if (!genres.includes(genre)) {
+          await addDoc(collection(db, 'genres'), {
+            name: genre,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+
       const sampleAlbums = [
         { title: "Midnight City", artist: "Neon Dreams", genre: "Electronic", year: 2023, price: 24.99, coverUrl: "https://picsum.photos/seed/elec1/600/600", stock: 50, description: "A journey through the neon-lit streets of a future city." },
         { title: "Echoes of Silence", artist: "The Void", genre: "Rock", year: 2022, price: 19.99, coverUrl: "https://picsum.photos/seed/rock1/600/600", stock: 30, description: "Raw energy and haunting melodies." },
@@ -455,6 +589,15 @@ export default function App() {
               <div className="flex items-center gap-2 md:gap-4">
                 {isAdmin && (
                   <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowAddGenreModal(true)}
+                      className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all"
+                      title="Add Genre"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span className="hidden sm:inline">Add Genre</span>
+                      <span className="sm:hidden">Genre</span>
+                    </button>
                     <button 
                       onClick={openAddModal}
                       className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all"
@@ -540,14 +683,14 @@ export default function App() {
 
       {/* Filter Bar */}
       <div className="sticky top-20 z-40 bg-black/80 backdrop-blur-md border-y border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-2 min-w-max">
-            {GENRES.map(genre => (
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          <div className="flex-1 flex items-center gap-2 overflow-x-auto h-full">
+            {genres.map(genre => (
               <button
                 key={genre}
                 onClick={() => setSelectedGenre(genre)}
                 className={cn(
-                  "px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all",
+                  "px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all shrink-0",
                   selectedGenre === genre 
                     ? "bg-white text-black" 
                     : "text-white/40 hover:text-white hover:bg-white/5"
@@ -557,7 +700,7 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-4 text-white/40 text-xs font-bold uppercase tracking-widest min-w-max ml-8">
+          <div className="flex items-center gap-4 text-white/40 text-xs font-bold uppercase tracking-widest shrink-0 ml-4">
             <Filter className="w-3 h-3" />
             Sort by: Newest
           </div>
@@ -663,13 +806,11 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Genre</label>
-                      <select 
+                      <CustomSelect 
                         value={newAlbum.genre}
-                        onChange={e => setNewAlbum({...newAlbum, genre: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors appearance-none"
-                      >
-                        {GENRES.slice(1).map(g => <option key={g} value={g}>{g}</option>)}
-                      </select>
+                        onChange={(val) => setNewAlbum({...newAlbum, genre: val})}
+                        options={genres.slice(1)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Year</label>
@@ -741,11 +882,31 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 mt-4">
+                <div className="md:col-span-2 mt-4 flex flex-col sm:flex-row gap-4">
+                  {editingAlbumId && (
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (showDeleteConfirm) {
+                          handleDeleteAlbum();
+                        } else {
+                          setShowDeleteConfirm(true);
+                        }
+                      }}
+                      disabled={loadingMore}
+                      className={`w-full sm:w-1/3 py-4 font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                        showDeleteConfirm 
+                          ? "bg-red-600 hover:bg-red-700 text-white" 
+                          : "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {showDeleteConfirm ? "Подтвердить" : "Удалить"}
+                    </button>
+                  )}
                   <button 
                     type="submit"
                     disabled={loadingMore}
-                    className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 disabled:cursor-not-allowed text-black font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 disabled:cursor-not-allowed text-black font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     {loadingMore ? (
                       <>
@@ -755,6 +916,63 @@ export default function App() {
                     ) : (
                       editingAlbumId ? "Save Changes" : "Add to Vault"
                     )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Genre Modal */}
+      <AnimatePresence>
+        {showAddGenreModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setShowAddGenreModal(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-3xl p-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold uppercase tracking-tighter">
+                  Add New Genre
+                </h2>
+                <button 
+                  onClick={() => setShowAddGenreModal(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveGenre} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Genre Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newGenreName}
+                    onChange={e => setNewGenreName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                    placeholder="e.g. Synthwave"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/10">
+                  <button 
+                    type="submit"
+                    disabled={loadingMore || !newGenreName.trim()}
+                    className="px-8 py-3 bg-white text-black rounded-full text-xs font-bold uppercase tracking-widest hover:bg-orange-500 transition-colors disabled:opacity-50"
+                  >
+                    {loadingMore ? "Saving..." : "Save Genre"}
                   </button>
                 </div>
               </form>
@@ -793,6 +1011,7 @@ export default function App() {
                     <img 
                       src={selectedAlbum.coverUrl} 
                       alt={selectedAlbum.title}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   </div>
