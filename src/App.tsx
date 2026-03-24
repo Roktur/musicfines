@@ -249,6 +249,10 @@ export default function App() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddGenreModal, setShowAddGenreModal] = useState(false);
+  const [showGenresCloud, setShowGenresCloud] = useState(false);
+  const [showNewArrivalsModal, setShowNewArrivalsModal] = useState(false);
+  const [newArrivals, setNewArrivals] = useState<Album[]>([]);
+  const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
   const [newGenreName, setNewGenreName] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
@@ -299,6 +303,26 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Fetch new arrivals
+  useEffect(() => {
+    if (showNewArrivalsModal) {
+      const fetchNewArrivals = async () => {
+        setLoadingNewArrivals(true);
+        try {
+          const q = query(collection(db, 'albums'), orderBy('createdAt', 'desc'), limit(3));
+          const snapshot = await getDocs(q);
+          const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+          setNewArrivals(fetched);
+        } catch (error) {
+          console.error("Error fetching new arrivals:", error);
+        } finally {
+          setLoadingNewArrivals(false);
+        }
+      };
+      fetchNewArrivals();
+    }
+  }, [showNewArrivalsModal]);
 
   // Initial fetch
   const fetchInitialAlbums = useCallback(async () => {
@@ -582,8 +606,8 @@ export default function App() {
 
           <div className="hidden lg:flex items-center gap-8">
             <a href="#" className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">КАТАЛОГ</a>
-            <a href="#" className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">НОВЫЕ ПОСТУПЛЕНИЯ</a>
-            <a href="#" className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">ЖАНРЫ</a>
+            <button onClick={() => setShowNewArrivalsModal(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">НОВЫЕ ПОСТУПЛЕНИЯ</button>
+            <button onClick={() => setShowGenresCloud(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity">ЖАНРЫ</button>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
@@ -921,6 +945,144 @@ export default function App() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* New Arrivals Modal */}
+      <AnimatePresence>
+        {showNewArrivalsModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowNewArrivalsModal(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-5xl bg-[#111] border border-white/10 rounded-3xl p-6 md:p-10 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl md:text-4xl font-bold uppercase tracking-tighter italic">
+                  Новые Поступления
+                </h2>
+                <button 
+                  onClick={() => setShowNewArrivalsModal(false)}
+                  className="p-3 hover:bg-white/10 rounded-full transition-colors shrink-0"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto custom-scrollbar pr-2">
+                {loadingNewArrivals ? (
+                  <div className="flex justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {newArrivals.map((album) => (
+                      <div 
+                        key={album.id} 
+                        className="group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedAlbum(album);
+                          setShowNewArrivalsModal(false);
+                        }}
+                      >
+                        <div className="aspect-square overflow-hidden relative">
+                          <img 
+                            src={album.coverUrl || "https://picsum.photos/seed/vinyl/600/600"} 
+                            alt={album.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                            <span className="text-xs font-bold uppercase tracking-widest bg-orange-500 text-black px-3 py-1.5 rounded-full">
+                              View Details
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-5">
+                          <div className="flex justify-between items-start gap-4 mb-2">
+                            <div>
+                              <h3 className="font-bold text-lg leading-tight mb-1">{album.title}</h3>
+                              <p className="text-sm text-white/60">{album.artist}</p>
+                            </div>
+                            <span className="font-mono text-orange-500 font-bold">${album.price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/10 rounded-md">
+                              {album.genre}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/10 rounded-md">
+                              {album.year}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Genres Cloud Modal */}
+      <AnimatePresence>
+        {showGenresCloud && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowGenresCloud(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-4xl bg-[#111] border border-white/10 rounded-3xl p-8 md:p-12 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="text-3xl md:text-5xl font-bold uppercase tracking-tighter">
+                  Все Жанры
+                </h2>
+                <button 
+                  onClick={() => setShowGenresCloud(false)}
+                  className="p-3 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 md:gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {genres.map(genre => (
+                  <button
+                    key={genre}
+                    onClick={() => {
+                      setSelectedGenre(genre);
+                      setShowGenresCloud(false);
+                    }}
+                    className={cn(
+                      "px-6 py-3 rounded-full text-sm md:text-base font-bold uppercase tracking-widest transition-all border",
+                      selectedGenre === genre 
+                        ? "bg-white text-black border-white" 
+                        : "bg-transparent text-white/70 border-white/20 hover:border-white/60 hover:text-white"
+                    )}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           </div>
         )}
