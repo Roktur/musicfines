@@ -622,7 +622,7 @@ export default function App() {
       let errorMessage = "Failed to save album. Please check console for details.";
       if (error instanceof Error) {
         try {
-          const parsed = JSON.parse(error.message);
+          const parsed = error.message && error.message !== "undefined" ? JSON.parse(error.message) : {};
           errorMessage = parsed.error || errorMessage;
         } catch {
           errorMessage = error.message;
@@ -670,7 +670,7 @@ export default function App() {
       let errorMessage = "Failed to delete album. Please check console for details.";
       if (error instanceof Error) {
         try {
-          const parsed = JSON.parse(error.message);
+          const parsed = error.message && error.message !== "undefined" ? JSON.parse(error.message) : {};
           errorMessage = parsed.error || errorMessage;
         } catch {
           errorMessage = error.message;
