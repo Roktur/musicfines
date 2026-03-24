@@ -274,6 +274,9 @@ export default function App() {
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = React.useRef<HTMLDivElement>(null);
   const [genres, setGenres] = useState<string[]>(["All", "Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"]);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -359,9 +362,16 @@ export default function App() {
   const fetchInitialAlbums = useCallback(async () => {
     setLoading(true);
     try {
+      let orderField = 'createdAt';
+      let orderDirection: 'desc' | 'asc' = 'desc';
+
+      if (sortBy === 'oldest') {
+        orderDirection = 'asc';
+      }
+
       let q = query(
         collection(db, 'albums'),
-        orderBy('createdAt', 'desc'),
+        orderBy(orderField, orderDirection),
         limit(20)
       );
 
@@ -369,7 +379,7 @@ export default function App() {
         q = query(
           collection(db, 'albums'),
           where('genre', '==', selectedGenre),
-          orderBy('createdAt', 'desc'),
+          orderBy(orderField, orderDirection),
           limit(20)
         );
       }
@@ -385,11 +395,21 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [selectedGenre]);
+  }, [selectedGenre, sortBy]);
 
   useEffect(() => {
     fetchInitialAlbums();
   }, [fetchInitialAlbums]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Load more
   const loadMore = useCallback(async () => {
@@ -397,9 +417,16 @@ export default function App() {
 
     setLoadingMore(true);
     try {
+      let orderField = 'createdAt';
+      let orderDirection: 'desc' | 'asc' = 'desc';
+
+      if (sortBy === 'oldest') {
+        orderDirection = 'asc';
+      }
+
       let q = query(
         collection(db, 'albums'),
-        orderBy('createdAt', 'desc'),
+        orderBy(orderField, orderDirection),
         startAfter(lastDoc),
         limit(20)
       );
@@ -408,7 +435,7 @@ export default function App() {
         q = query(
           collection(db, 'albums'),
           where('genre', '==', selectedGenre),
-          orderBy('createdAt', 'desc'),
+          orderBy(orderField, orderDirection),
           startAfter(lastDoc),
           limit(20)
         );
@@ -431,7 +458,7 @@ export default function App() {
     } finally {
       setLoadingMore(false);
     }
-  }, [lastDoc, loadingMore, hasMore, selectedGenre]);
+  }, [lastDoc, loadingMore, hasMore, selectedGenre, sortBy]);
 
   useEffect(() => {
     if (inView && hasMore && !loading && !loadingMore) {
@@ -758,9 +785,48 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-4 text-white/40 text-xs font-bold uppercase tracking-widest shrink-0 ml-4">
+          <div className="relative flex items-center gap-2 text-white/40 text-xs font-bold uppercase tracking-widest shrink-0 ml-4" ref={sortRef}>
             <Filter className="w-3 h-3" />
-            Sort by: Newest
+            <button 
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className="bg-transparent border-none outline-none cursor-pointer text-white/60 hover:text-white transition-colors flex items-center gap-1"
+            >
+              {sortBy === 'newest' && 'Сортировка: НОВЫЕ'}
+              {sortBy === 'oldest' && 'Сортировка: СТАРЫЕ'}
+              <ChevronDown className={cn("w-3 h-3 transition-transform", isSortOpen && "rotate-180")} />
+            </button>
+            
+            <AnimatePresence>
+              {isSortOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
+                >
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => { setSortBy('newest'); setIsSortOpen(false); }}
+                      className={cn(
+                        "px-4 py-3 text-left text-xs font-bold uppercase tracking-widest transition-colors hover:bg-white/5",
+                        sortBy === 'newest' ? "text-orange-500 bg-white/5" : "text-white/60"
+                      )}
+                    >
+                      Сортировка: НОВЫЕ
+                    </button>
+                    <button
+                      onClick={() => { setSortBy('oldest'); setIsSortOpen(false); }}
+                      className={cn(
+                        "px-4 py-3 text-left text-xs font-bold uppercase tracking-widest transition-colors hover:bg-white/5",
+                        sortBy === 'oldest' ? "text-orange-500 bg-white/5" : "text-white/60"
+                      )}
+                    >
+                      Сортировка: СТАРЫЕ
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -770,7 +836,7 @@ export default function App() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-40 gap-4">
             <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
-            <span className="text-white/40 uppercase tracking-widest text-xs font-bold">Loading Vault...</span>
+            <span className="text-white/40 uppercase tracking-widest text-xs font-bold">ЗАГРУЖАЕМ...</span>
           </div>
         ) : filteredAlbums.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-16">
@@ -793,7 +859,7 @@ export default function App() {
           {loadingMore && (
             <div className="flex items-center gap-3">
               <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Loading more...</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Загружаем еще...</span>
             </div>
           )}
           {!hasMore && albums.length > 0 && (
