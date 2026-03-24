@@ -295,7 +295,7 @@ export default function App() {
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'discount'>('newest');
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const sortRef = React.useRef<HTMLDivElement>(null);
@@ -386,26 +386,41 @@ export default function App() {
   const fetchInitialAlbums = useCallback(async () => {
     setLoading(true);
     try {
-      let orderField = 'createdAt';
-      let orderDirection: 'desc' | 'asc' = 'desc';
-
-      if (sortBy === 'oldest') {
-        orderDirection = 'asc';
-      }
-
-      let q = query(
-        collection(db, 'albums'),
-        orderBy(orderField, orderDirection),
-        limit(20)
-      );
-
-      if (selectedGenre !== "All") {
-        q = query(
-          collection(db, 'albums'),
-          where('genre', '==', selectedGenre),
-          orderBy(orderField, orderDirection),
-          limit(20)
-        );
+      let q;
+      if (sortBy === 'discount') {
+        if (selectedGenre !== "All") {
+          q = query(
+            collection(db, 'albums'),
+            where('genre', '==', selectedGenre),
+            where('discount', '>', 0),
+            orderBy('discount', 'desc'),
+            limit(20)
+          );
+        } else {
+          q = query(
+            collection(db, 'albums'),
+            where('discount', '>', 0),
+            orderBy('discount', 'desc'),
+            limit(20)
+          );
+        }
+      } else {
+        const orderField = 'createdAt';
+        const orderDirection = sortBy === 'oldest' ? 'asc' : 'desc';
+        if (selectedGenre !== "All") {
+          q = query(
+            collection(db, 'albums'),
+            where('genre', '==', selectedGenre),
+            orderBy(orderField, orderDirection),
+            limit(20)
+          );
+        } else {
+          q = query(
+            collection(db, 'albums'),
+            orderBy(orderField, orderDirection),
+            limit(20)
+          );
+        }
       }
 
       const snapshot = await getDocs(q).catch(err => handleFirestoreError(err, OperationType.GET, 'albums'));
@@ -465,28 +480,45 @@ export default function App() {
 
     setLoadingMore(true);
     try {
-      let orderField = 'createdAt';
-      let orderDirection: 'desc' | 'asc' = 'desc';
-
-      if (sortBy === 'oldest') {
-        orderDirection = 'asc';
-      }
-
-      let q = query(
-        collection(db, 'albums'),
-        orderBy(orderField, orderDirection),
-        startAfter(lastDoc),
-        limit(20)
-      );
-
-      if (selectedGenre !== "All") {
-        q = query(
-          collection(db, 'albums'),
-          where('genre', '==', selectedGenre),
-          orderBy(orderField, orderDirection),
-          startAfter(lastDoc),
-          limit(20)
-        );
+      let q;
+      if (sortBy === 'discount') {
+        if (selectedGenre !== "All") {
+          q = query(
+            collection(db, 'albums'),
+            where('genre', '==', selectedGenre),
+            where('discount', '>', 0),
+            orderBy('discount', 'desc'),
+            startAfter(lastDoc),
+            limit(20)
+          );
+        } else {
+          q = query(
+            collection(db, 'albums'),
+            where('discount', '>', 0),
+            orderBy('discount', 'desc'),
+            startAfter(lastDoc),
+            limit(20)
+          );
+        }
+      } else {
+        const orderField = 'createdAt';
+        const orderDirection = sortBy === 'oldest' ? 'asc' : 'desc';
+        if (selectedGenre !== "All") {
+          q = query(
+            collection(db, 'albums'),
+            where('genre', '==', selectedGenre),
+            orderBy(orderField, orderDirection),
+            startAfter(lastDoc),
+            limit(20)
+          );
+        } else {
+          q = query(
+            collection(db, 'albums'),
+            orderBy(orderField, orderDirection),
+            startAfter(lastDoc),
+            limit(20)
+          );
+        }
       }
 
       const snapshot = await getDocs(q).catch(err => handleFirestoreError(err, OperationType.GET, 'albums'));
@@ -853,6 +885,7 @@ export default function App() {
             >
               {sortBy === 'newest' && 'Сортировка: НОВЫЕ'}
               {sortBy === 'oldest' && 'Сортировка: СТАРЫЕ'}
+              {sortBy === 'discount' && 'Сортировка: СКИДКА'}
               <ChevronDown className={cn("w-3 h-3 transition-transform", isSortOpen && "rotate-180")} />
             </button>
             
@@ -882,6 +915,15 @@ export default function App() {
                       )}
                     >
                       Сортировка: СТАРЫЕ
+                    </button>
+                    <button
+                      onClick={() => { setSortBy('discount'); setIsSortOpen(false); }}
+                      className={cn(
+                        "px-4 py-3 text-left text-xs font-bold uppercase tracking-widest transition-colors hover:bg-white/5",
+                        sortBy === 'discount' ? "text-orange-500 bg-white/5" : "text-white/60"
+                      )}
+                    >
+                      Сортировка: СКИДКА
                     </button>
                   </div>
                 </motion.div>
