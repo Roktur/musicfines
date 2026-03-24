@@ -290,8 +290,10 @@ export default function App() {
   useEffect(() => {
     const q = query(collection(db, 'genres'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      const defaultGenres = ["Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"];
       const fetchedGenres = snapshot.docs.map(doc => doc.data().name);
-      setGenres(["All", ...fetchedGenres]);
+      const combinedGenres = Array.from(new Set([...defaultGenres, ...fetchedGenres]));
+      setGenres(["All", ...combinedGenres]);
     }, (error) => {
       console.error("Error fetching genres:", error);
     });
