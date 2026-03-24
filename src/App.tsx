@@ -165,21 +165,21 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
       {album.discount && album.discount > 0 && (
         <div className="absolute top-4 left-4 z-10">
           <div className="h-7 px-3 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px] pl-[0.1em]">-{album.discount}%</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest leading-none">-{album.discount}%</span>
           </div>
         </div>
       )}
       <div className="absolute top-4 right-4 z-10">
         {album.discount && album.discount > 0 ? (
           <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest line-through text-white/40 leading-none pt-[1px] pl-[0.1em]">{album.price} ₽</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none pt-[1px] pl-[0.1em]">
+            <span className="text-[10px] font-bold uppercase tracking-widest line-through text-white/40 leading-none">{album.price} ₽</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none">
               {Math.round(album.price * (1 - album.discount / 100))} ₽
             </span>
           </div>
         ) : (
           <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px] pl-[0.1em]">{album.price} ₽</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest leading-none">{album.price} ₽</span>
           </div>
         )}
       </div>
@@ -1231,7 +1231,7 @@ export default function App() {
                               <div className="flex flex-col items-end">
                                 <span className="font-mono text-white/40 font-bold line-through text-xs">{album.price} ₽</span>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] bg-orange-500 text-black px-1.5 h-4 flex items-center justify-center rounded font-bold leading-none pt-[1px]">-{album.discount}%</span>
+                                  <span className="text-[10px] bg-orange-500 text-black px-1.5 h-4 flex items-center justify-center rounded font-bold leading-none">-{album.discount}%</span>
                                   <span className="font-mono text-orange-500 font-bold">{Math.round(album.price * (1 - album.discount / 100))} ₽</span>
                                 </div>
                               </div>
@@ -1425,7 +1425,7 @@ export default function App() {
                       </span>
                       {selectedAlbum.discount && selectedAlbum.discount > 0 ? (
                         <div className="flex items-center gap-2 ml-auto">
-                          <span className="h-7 px-3 flex items-center justify-center bg-orange-500 text-black rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg leading-none pt-[1px] pl-[0.1em]">
+                          <span className="h-7 px-3 flex items-center justify-center bg-orange-500 text-black rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg leading-none">
                             -{selectedAlbum.discount}%
                           </span>
                           <span className="text-sm font-bold uppercase tracking-widest line-through text-white/40">
