@@ -655,12 +655,23 @@ export default function App() {
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-3">
+          <button 
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedGenre("All");
+              setSortBy("newest");
+              setSelectedAlbum(null);
+              setShowNewArrivalsModal(false);
+              setShowGenresCloud(false);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="flex items-center gap-2 md:gap-3 hover:opacity-80 transition-opacity text-left"
+          >
             <div className="w-8 h-8 md:w-10 md:h-10 shrink-0 bg-orange-500 rounded-full flex items-center justify-center">
               <Disc className="text-black w-4 h-4 md:w-6 md:h-6 animate-spin-slow" />
             </div>
             <span className="text-sm md:text-xl font-bold tracking-tighter uppercase italic leading-tight">Музыка без штрафов</span>
-          </div>
+          </button>
 
           <div className="hidden lg:flex items-center gap-8">
             <button onClick={() => setShowNewArrivalsModal(true)} className="text-sm uppercase tracking-widest font-semibold opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2">
@@ -1342,12 +1353,23 @@ export default function App() {
       <footer className="border-t border-white/5 py-20 px-6 bg-black">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-2 space-y-8">
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedGenre("All");
+                setSortBy("newest");
+                setSelectedAlbum(null);
+                setShowNewArrivalsModal(false);
+                setShowGenresCloud(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left"
+            >
               <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
                 <Disc className="text-black w-5 h-5" />
               </div>
               <span className="text-lg font-bold tracking-tighter uppercase italic">Музыка без штрафов</span>
-            </div>
+            </button>
             <p className="max-w-md text-white/40 leading-relaxed">
               Музыка без штрафов — это премиальное место для владельцев разных заведений. Мы специализируемся на высококачественном аудио для воспроизведения музыкальных композиций БЕЗ ШТРАФА.
             </p>
