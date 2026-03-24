@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: albums
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required)
+    //   - artist: string (required)
+    //   - genre: string (optional)
+    //   - year: number (optional)
+    //   - price: number (required)
+    //   - coverUrl: string (required, URL)
+    //   - stock: number (optional)
+    //   - description: string (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        request.auth.token.email.lower() == "roktur@gmail.com";
+    }
+
+    function isValidAlbum(data) {
+      return data.keys().hasAll(['title', 'artist', 'price', 'coverUrl']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.artist is string && data.artist.size() > 0 && data.artist.size() < 200 &&
+             data.price is number && data.price >= 0 &&
+             data.coverUrl is string && data.coverUrl.size() < 1000 && (data.coverUrl.matches("^https://.*") || data.coverUrl.matches("^http://.*")) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             (!('genre' in data) || (data.genre is string && data.genre.size() < 50)) &&
+             (!('purchaseUrl' in data) || (data.purchaseUrl is string && data.purchaseUrl.size() < 1000 && (data.purchaseUrl.matches("^https://.*") || data.purchaseUrl.matches("^http://.*") || data.purchaseUrl == "")));
+    }
+
+    match /albums/{albumId} {
+      // Publicly readable for the storefront
+      allow read: if true;
+      
+      // Only admins can modify the catalog
+      allow create: if isAdmin() && isValidAlbum(request.resource.data);
+      allow update: if isAdmin() && isValidAlbum(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
