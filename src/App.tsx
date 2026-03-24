@@ -37,7 +37,8 @@ import {
   X,
   Pencil,
   Info,
-  ChevronDown
+  ChevronDown,
+  ArrowUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInView } from 'react-intersection-observer';
@@ -276,6 +277,7 @@ export default function App() {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const sortRef = React.useRef<HTMLDivElement>(null);
   const [genres, setGenres] = useState<string[]>(["All", "Rock", "Jazz", "Electronic", "Hip Hop", "Classical", "Pop", "Blues"]);
   const [user, setUser] = useState<User | null>(null);
@@ -409,6 +411,18 @@ export default function App() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Load more
@@ -1391,6 +1405,21 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-8 right-8 z-50 p-4 bg-orange-500 text-black rounded-full shadow-lg shadow-orange-500/20 hover:bg-orange-400 transition-colors"
+          >
+            <ArrowUp className="w-6 h-6" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <style>{`
         @keyframes spin-slow {
