@@ -783,8 +783,8 @@ export default function App() {
             <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
               <Search className="w-8 h-8 text-white/20" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">No albums found</h3>
-            <p className="text-white/40">Try adjusting your search or filters to find what you're looking for.</p>
+            <h3 className="text-2xl font-bold mb-2">Альбомы не найдены</h3>
+            <p className="text-white/40">Попробуйте изменить параметры поиска или фильтры.</p>
           </div>
         )}
 
@@ -797,7 +797,7 @@ export default function App() {
             </div>
           )}
           {!hasMore && albums.length > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">End of catalog</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Скоро будет ещё...</span>
           )}
         </div>
       </main>
