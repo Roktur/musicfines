@@ -56,6 +56,7 @@ interface Album {
   description: string;
   purchaseUrl?: string;
   tracklist?: string;
+  discount?: number;
   createdAt: any;
 }
 
@@ -160,8 +161,26 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
           </button>
         )}
       </div>
-      <div className="absolute top-4 right-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full border border-white/10">
-        <span className="text-[10px] font-bold uppercase tracking-widest">{album.price} ₽</span>
+      {album.discount && album.discount > 0 && (
+        <div className="absolute top-4 left-4 z-10">
+          <div className="h-7 px-3 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px] pl-[0.1em]">-{album.discount}%</span>
+          </div>
+        </div>
+      )}
+      <div className="absolute top-4 right-4 z-10">
+        {album.discount && album.discount > 0 ? (
+          <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest line-through text-white/40 leading-none pt-[1px] pl-[0.1em]">{album.price} ₽</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none pt-[1px] pl-[0.1em]">
+              {Math.round(album.price * (1 - album.discount / 100))} ₽
+            </span>
+          </div>
+        ) : (
+          <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px] pl-[0.1em]">{album.price} ₽</span>
+          </div>
+        )}
       </div>
     </div>
     
@@ -303,6 +322,7 @@ export default function App() {
     genre: "Rock",
     year: new Date().getFullYear(),
     price: 19.99,
+    discount: 0,
     coverUrl: "",
     description: "",
     purchaseUrl: "",
@@ -506,6 +526,7 @@ export default function App() {
       genre: album.genre,
       year: album.year,
       price: album.price,
+      discount: album.discount || 0,
       coverUrl: album.coverUrl,
       description: album.description || "",
       purchaseUrl: album.purchaseUrl || "",
@@ -766,7 +787,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center text-center"
           >
-            <span className="text-orange-500 text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] mb-4 md:mb-6 text-center">Premium Audio Experience</span>
+            <span className="text-orange-500 text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] mb-4 md:mb-6 text-center">Premium Audio for Business</span>
             <h1 className="text-5xl sm:text-7xl md:text-[90px] lg:text-[120px] font-black leading-[0.85] tracking-tighter uppercase mb-6 md:mb-8 text-center break-words w-full">
               The Sound <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white/50 to-white/10">Of Tomorrow</span>
@@ -974,16 +995,29 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Price (₽)</label>
-                    <input 
-                      required
-                      type="number" 
-                      step="0.01"
-                      value={newAlbum.price}
-                      onChange={e => setNewAlbum({...newAlbum, price: parseFloat(e.target.value)})}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Цена (₽)</label>
+                      <input 
+                        required
+                        type="number" 
+                        step="0.01"
+                        value={newAlbum.price}
+                        onChange={e => setNewAlbum({...newAlbum, price: parseFloat(e.target.value)})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Скидка (%)</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        max="100"
+                        value={newAlbum.discount || 0}
+                        onChange={e => setNewAlbum({...newAlbum, discount: parseInt(e.target.value) || 0})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Cover Image Upload</label>
@@ -1127,7 +1161,7 @@ export default function App() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                             <span className="text-xs font-bold uppercase tracking-widest bg-orange-500 text-black px-3 py-1.5 rounded-full">
-                              View Details
+                              ОПИСАНИЕ АЛЬБОМА
                             </span>
                           </div>
                         </div>
@@ -1137,7 +1171,17 @@ export default function App() {
                               <h3 className="font-bold text-lg leading-tight mb-1">{album.title}</h3>
                               <p className="text-sm text-white/60">{album.artist}</p>
                             </div>
-                            <span className="font-mono text-orange-500 font-bold">${album.price.toFixed(2)}</span>
+                            {album.discount && album.discount > 0 ? (
+                              <div className="flex flex-col items-end">
+                                <span className="font-mono text-white/40 font-bold line-through text-xs">{album.price} ₽</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] bg-orange-500 text-black px-1.5 h-4 flex items-center justify-center rounded font-bold leading-none pt-[1px]">-{album.discount}%</span>
+                                  <span className="font-mono text-orange-500 font-bold">{Math.round(album.price * (1 - album.discount / 100))} ₽</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="font-mono text-orange-500 font-bold">{album.price} ₽</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-4">
                             <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-white/10 rounded-md">
@@ -1323,6 +1367,23 @@ export default function App() {
                       <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest">
                         {selectedAlbum.year}
                       </span>
+                      {selectedAlbum.discount && selectedAlbum.discount > 0 ? (
+                        <div className="flex items-center gap-2 ml-auto">
+                          <span className="h-7 px-3 flex items-center justify-center bg-orange-500 text-black rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg leading-none pt-[1px] pl-[0.1em]">
+                            -{selectedAlbum.discount}%
+                          </span>
+                          <span className="text-sm font-bold uppercase tracking-widest line-through text-white/40">
+                            {selectedAlbum.price} ₽
+                          </span>
+                          <span className="text-xl font-bold uppercase tracking-widest text-orange-500">
+                            {Math.round(selectedAlbum.price * (1 - selectedAlbum.discount / 100))} ₽
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="ml-auto text-xl font-bold uppercase tracking-widest text-white">
+                          {selectedAlbum.price} ₽
+                        </span>
+                      )}
                     </div>
                     <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-2">
                       {selectedAlbum.title}
