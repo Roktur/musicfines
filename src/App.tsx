@@ -58,6 +58,7 @@ interface Album {
   purchaseUrl?: string;
   tracklist?: string;
   discount?: number;
+  tracksCount?: number;
   createdAt: any;
 }
 
@@ -191,7 +192,12 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
         <span className="text-[10px] font-bold text-white/30">{album.year}</span>
       </div>
       <h3 className="text-lg font-bold truncate group-hover:text-orange-500 transition-colors">{album.title}</h3>
-      <p className="text-sm text-white/40 font-medium">{album.artist}</p>
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm text-white/40 font-medium truncate">{album.artist}</p>
+        {album.tracksCount ? (
+          <span className="text-[10px] font-bold text-white/30 whitespace-nowrap ml-2">({album.tracksCount} треков)</span>
+        ) : null}
+      </div>
       <div className="pt-2">
         <button 
           onClick={(e) => { e.stopPropagation(); onSelect(album); }}
@@ -328,7 +334,8 @@ export default function App() {
     coverUrl: "",
     description: "",
     purchaseUrl: "",
-    tracklist: ""
+    tracklist: "",
+    tracksCount: 0
   });
 
   const { ref: loadMoreRef, inView } = useInView({
@@ -556,7 +563,8 @@ export default function App() {
       coverUrl: "",
       description: "",
       purchaseUrl: "",
-      tracklist: ""
+      tracklist: "",
+      tracksCount: 0
     });
     setEditingAlbumId(null);
     setShowDeleteConfirm(false);
@@ -576,7 +584,8 @@ export default function App() {
       coverUrl: album.coverUrl,
       description: album.description || "",
       purchaseUrl: album.purchaseUrl || "",
-      tracklist: album.tracklist || ""
+      tracklist: album.tracklist || "",
+      tracksCount: album.tracksCount || 0
     });
     setEditingAlbumId(album.id);
     setShowDeleteConfirm(false);
@@ -1029,7 +1038,7 @@ export default function App() {
                       placeholder="e.g. Pink Floyd"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Genre</label>
                       <CustomSelect 
@@ -1044,6 +1053,16 @@ export default function App() {
                         type="number" 
                         value={newAlbum.year}
                         onChange={e => setNewAlbum({...newAlbum, year: parseInt(e.target.value)})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Треки</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={newAlbum.tracksCount || 0}
+                        onChange={e => setNewAlbum({...newAlbum, tracksCount: parseInt(e.target.value) || 0})}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
                       />
                     </div>
@@ -1225,7 +1244,12 @@ export default function App() {
                           <div className="flex justify-between items-start gap-4 mb-2">
                             <div>
                               <h3 className="font-bold text-lg leading-tight mb-1">{album.title}</h3>
-                              <p className="text-sm text-white/60">{album.artist}</p>
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-sm text-white/60">{album.artist}</p>
+                                {album.tracksCount ? (
+                                  <span className="text-[10px] font-bold text-white/30 whitespace-nowrap">({album.tracksCount} треков)</span>
+                                ) : null}
+                              </div>
                             </div>
                             {album.discount && album.discount > 0 ? (
                               <div className="flex flex-col items-end">
@@ -1444,9 +1468,16 @@ export default function App() {
                     <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-2">
                       {selectedAlbum.title}
                     </h2>
-                    <p className="text-xl md:text-2xl text-white/60 font-medium">
-                      {selectedAlbum.artist}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xl md:text-2xl text-white/60 font-medium">
+                        {selectedAlbum.artist}
+                      </p>
+                      {selectedAlbum.tracksCount ? (
+                        <span className="text-sm font-bold text-white/30 bg-white/5 px-3 py-1 rounded-full">
+                          {selectedAlbum.tracksCount} треков
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {selectedAlbum.description && (
