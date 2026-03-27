@@ -163,23 +163,21 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
           </button>
         )}
       </div>
-      {album.discount && album.discount > 0 && (
-        <div className="absolute top-4 left-4 z-10">
-          <div className="h-7 px-3 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
+      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5 pointer-events-none">
+        {album.discount && album.discount > 0 && (
+          <div className="h-6 px-2.5 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
             <span className="text-[10px] font-bold uppercase tracking-widest leading-none">-{album.discount}%</span>
           </div>
-        </div>
-      )}
-      <div className="absolute top-4 right-4 z-10">
+        )}
         {album.discount && album.discount > 0 ? (
-          <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest line-through text-white/40 leading-none">{album.price} ₽</span>
+          <div className="h-6 px-2.5 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest line-through text-white/40 leading-none">{album.price} ₽</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none">
               {Math.round(album.price * (1 - album.discount / 100))} ₽
             </span>
           </div>
         ) : (
-          <div className="h-7 px-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+          <div className="h-6 px-2.5 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
             <span className="text-[10px] font-bold uppercase tracking-widest leading-none">{album.price} ₽</span>
           </div>
         )}
@@ -192,10 +190,10 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
         <span className="text-[10px] font-bold text-white/30">{album.year}</span>
       </div>
       <h3 className="text-lg font-bold truncate group-hover:text-orange-500 transition-colors">{album.title}</h3>
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm text-white/40 font-medium truncate">{album.artist}</p>
         {album.tracksCount ? (
-          <span className="text-[10px] font-bold text-white/30 whitespace-nowrap ml-2">({album.tracksCount} треков)</span>
+          <span className="text-[10px] font-bold text-white/30 whitespace-nowrap shrink-0">({album.tracksCount} треков)</span>
         ) : null}
       </div>
       <div className="pt-2">
@@ -1242,17 +1240,17 @@ export default function App() {
                         </div>
                         <div className="p-5">
                           <div className="flex justify-between items-start gap-4 mb-2">
-                            <div>
-                              <h3 className="font-bold text-lg leading-tight mb-1">{album.title}</h3>
+                            <div className="min-w-0">
+                              <h3 className="font-bold text-lg leading-tight mb-1 truncate">{album.title}</h3>
                               <div className="flex items-baseline gap-2">
-                                <p className="text-sm text-white/60">{album.artist}</p>
+                                <p className="text-sm text-white/60 truncate">{album.artist}</p>
                                 {album.tracksCount ? (
-                                  <span className="text-[10px] font-bold text-white/30 whitespace-nowrap">({album.tracksCount} треков)</span>
+                                  <span className="text-[10px] font-bold text-white/30 whitespace-nowrap shrink-0">({album.tracksCount} треков)</span>
                                 ) : null}
                               </div>
                             </div>
                             {album.discount && album.discount > 0 ? (
-                              <div className="flex flex-col items-end">
+                              <div className="flex flex-col items-end shrink-0">
                                 <span className="font-mono text-white/40 font-bold line-through text-xs">{album.price} ₽</span>
                                 <div className="flex items-center gap-2">
                                   <span className="text-[10px] bg-orange-500 text-black px-1.5 h-4 flex items-center justify-center rounded font-bold leading-none">-{album.discount}%</span>
@@ -1260,7 +1258,7 @@ export default function App() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="font-mono text-orange-500 font-bold">{album.price} ₽</span>
+                              <span className="font-mono text-orange-500 font-bold shrink-0">{album.price} ₽</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-4">
@@ -1440,30 +1438,33 @@ export default function App() {
 
                 <div className="space-y-8">
                   <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                        {selectedAlbum.genre}
-                      </span>
-                      <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                        {selectedAlbum.year}
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                       {selectedAlbum.discount && selectedAlbum.discount > 0 ? (
-                        <div className="flex items-center gap-2 ml-auto">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="h-7 px-3 flex items-center justify-center bg-orange-500 text-black rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg leading-none">
                             -{selectedAlbum.discount}%
                           </span>
-                          <span className="text-sm font-bold uppercase tracking-widest line-through text-white/40">
+                          <span className="text-sm font-bold uppercase tracking-widest line-through text-white/40 whitespace-nowrap">
                             {selectedAlbum.price} ₽
                           </span>
-                          <span className="text-xl font-bold uppercase tracking-widest text-orange-500">
+                          <span className="text-xl font-bold uppercase tracking-widest text-orange-500 whitespace-nowrap">
                             {Math.round(selectedAlbum.price * (1 - selectedAlbum.discount / 100))} ₽
                           </span>
                         </div>
                       ) : (
-                        <span className="ml-auto text-xl font-bold uppercase tracking-widest text-white">
+                        <span className="text-xl font-bold uppercase tracking-widest text-white shrink-0 whitespace-nowrap">
                           {selectedAlbum.price} ₽
                         </span>
                       )}
+                      
+                      <div className="flex items-center gap-3">
+                        <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest shrink-0">
+                          {selectedAlbum.genre}
+                        </span>
+                        <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest shrink-0">
+                          {selectedAlbum.year}
+                        </span>
+                      </div>
                     </div>
                     <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-2">
                       {selectedAlbum.title}
