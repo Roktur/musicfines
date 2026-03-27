@@ -163,22 +163,24 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
           </button>
         )}
       </div>
-      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5 pointer-events-none">
-        {album.discount && album.discount > 0 && (
-          <div className="h-6 px-2.5 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-widest leading-none">-{album.discount}%</span>
+      {album.discount && album.discount > 0 && (
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 pointer-events-none">
+          <div className="h-5 sm:h-6 px-2 sm:px-2.5 bg-orange-500 text-black rounded-full shadow-lg flex items-center justify-center">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest leading-none">-{album.discount}%</span>
           </div>
-        )}
+        </div>
+      )}
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 pointer-events-none">
         {album.discount && album.discount > 0 ? (
-          <div className="h-6 px-2.5 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center gap-1.5">
-            <span className="text-[9px] font-bold uppercase tracking-widest line-through text-white/40 leading-none">{album.price} ₽</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none">
+          <div className="py-1 px-2 sm:h-6 sm:py-0 sm:px-2.5 bg-black/50 backdrop-blur-md rounded-lg sm:rounded-full border border-white/10 flex flex-col sm:flex-row items-end sm:items-center justify-center gap-0.5 sm:gap-1.5">
+            <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest line-through text-white/40 leading-none">{album.price} ₽</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-orange-500 leading-none">
               {Math.round(album.price * (1 - album.discount / 100))} ₽
             </span>
           </div>
         ) : (
-          <div className="h-6 px-2.5 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[10px] font-bold uppercase tracking-widest leading-none">{album.price} ₽</span>
+          <div className="h-5 sm:h-6 px-2 sm:px-2.5 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest leading-none">{album.price} ₽</span>
           </div>
         )}
       </div>
