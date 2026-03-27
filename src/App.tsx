@@ -22,7 +22,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage, signIn, signOut } from './firebase';
 import { cn } from './lib/utils';
 import { 
@@ -39,7 +39,11 @@ import {
   Info,
   ChevronDown,
   ArrowUp,
-  Cookie
+  Cookie,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInView } from 'react-intersection-observer';
@@ -59,8 +63,109 @@ interface Album {
   tracklist?: string;
   discount?: number;
   tracksCount?: number;
+  audioUrl?: string;
   createdAt: any;
 }
+
+const CustomAudioPlayer = ({ url }: { url: string }) => {
+  const audioRef = React.useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const toggleMute = () => {
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (audioRef.current) {
+      const seekTime = (Number(e.target.value) / 100) * audioRef.current.duration;
+      audioRef.current.currentTime = seekTime;
+      setProgress(Number(e.target.value));
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4">
+      <audio 
+        ref={audioRef} 
+        src={url} 
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => setIsPlaying(false)}
+      />
+      
+      <button 
+        onClick={togglePlay}
+        className="w-12 h-12 shrink-0 bg-orange-500 hover:bg-orange-600 text-black rounded-full flex items-center justify-center transition-colors"
+      >
+        {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+      </button>
+
+      <div className="flex-1 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-[10px] font-bold text-white/40 font-mono">
+          <span>{formatTime(audioRef.current?.currentTime || 0)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+        <div className="relative h-2 bg-white/10 rounded-full overflow-hidden group cursor-pointer">
+          <div 
+            className="absolute top-0 left-0 h-full bg-orange-500 transition-all duration-100 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
+          <input 
+            type="range" 
+            min="0" 
+            max="100" 
+            value={progress || 0} 
+            onChange={handleSeek}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <button 
+        onClick={toggleMute}
+        className="w-8 h-8 shrink-0 text-white/40 hover:text-white transition-colors flex items-center justify-center"
+      >
+        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+      </button>
+    </div>
+  );
+};
 
 const CustomSelect = ({ value, onChange, options }: { value: string, onChange: (val: string) => void, options: string[] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -317,6 +422,9 @@ export default function App() {
   const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
   const [newGenreName, setNewGenreName] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [originalAudioUrl, setOriginalAudioUrl] = useState<string | null>(null);
+  const [originalCoverUrl, setOriginalCoverUrl] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -335,7 +443,8 @@ export default function App() {
     description: "",
     purchaseUrl: "",
     tracklist: "",
-    tracksCount: 0
+    tracksCount: 0,
+    audioUrl: ""
   });
 
   const { ref: loadMoreRef, inView } = useInView({
@@ -560,15 +669,20 @@ export default function App() {
       genre: genres.length > 1 ? genres[1] : "",
       year: new Date().getFullYear(),
       price: 19.99,
+      discount: 0,
       coverUrl: "",
       description: "",
       purchaseUrl: "",
       tracklist: "",
-      tracksCount: 0
+      tracksCount: 0,
+      audioUrl: ""
     });
     setEditingAlbumId(null);
     setShowDeleteConfirm(false);
     setImageFile(null);
+    setAudioFile(null);
+    setOriginalAudioUrl(null);
+    setOriginalCoverUrl(null);
     setAddError(null);
     setShowAddModal(true);
   }, [genres]);
@@ -585,11 +699,15 @@ export default function App() {
       description: album.description || "",
       purchaseUrl: album.purchaseUrl || "",
       tracklist: album.tracklist || "",
-      tracksCount: album.tracksCount || 0
+      tracksCount: album.tracksCount || 0,
+      audioUrl: album.audioUrl || ""
     });
     setEditingAlbumId(album.id);
     setShowDeleteConfirm(false);
     setImageFile(null);
+    setAudioFile(null);
+    setOriginalAudioUrl(album.audioUrl || null);
+    setOriginalCoverUrl(album.coverUrl || null);
     setAddError(null);
     setShowAddModal(true);
   }, []);
@@ -604,20 +722,41 @@ export default function App() {
     try {
       let coverUrl = newAlbum.coverUrl;
       if (imageFile) {
+        if (originalCoverUrl) {
+          try { await deleteObject(ref(storage, originalCoverUrl)); } catch (err) { console.error("Failed to delete old cover", err); }
+        }
         const storageRef = ref(storage, `covers/${Date.now()}_${imageFile.name}`);
         await uploadBytes(storageRef, imageFile);
         coverUrl = await getDownloadURL(storageRef);
+      } else if (!newAlbum.coverUrl && originalCoverUrl) {
+        try { await deleteObject(ref(storage, originalCoverUrl)); } catch (err) { console.error("Failed to delete old cover", err); }
+        coverUrl = "";
+      }
+
+      let audioUrl = newAlbum.audioUrl;
+      if (audioFile) {
+        if (originalAudioUrl) {
+          try { await deleteObject(ref(storage, originalAudioUrl)); } catch (err) { console.error("Failed to delete old audio", err); }
+        }
+        const storageRef = ref(storage, `audio/${Date.now()}_${audioFile.name}`);
+        await uploadBytes(storageRef, audioFile);
+        audioUrl = await getDownloadURL(storageRef);
+      } else if (!newAlbum.audioUrl && originalAudioUrl) {
+        try { await deleteObject(ref(storage, originalAudioUrl)); } catch (err) { console.error("Failed to delete old audio", err); }
+        audioUrl = "";
       }
 
       if (editingAlbumId) {
         await updateDoc(doc(db, 'albums', editingAlbumId), {
           ...newAlbum,
-          coverUrl
+          coverUrl,
+          audioUrl
         }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `albums/${editingAlbumId}`));
       } else {
         await addDoc(collection(db, 'albums'), {
           ...newAlbum,
           coverUrl,
+          audioUrl,
           createdAt: serverTimestamp(),
           stock: 100
         }).catch(err => handleFirestoreError(err, OperationType.CREATE, 'albums'));
@@ -625,6 +764,7 @@ export default function App() {
       
       setShowAddModal(false);
       setImageFile(null);
+      setAudioFile(null);
       fetchInitialAlbums();
     } catch (error: any) {
       console.error("Error saving album:", error);
@@ -670,9 +810,20 @@ export default function App() {
     
     setLoadingMore(true);
     try {
+      const albumToDelete = albums.find(a => a.id === editingAlbumId);
+      if (albumToDelete) {
+        if (albumToDelete.coverUrl) {
+          try { await deleteObject(ref(storage, albumToDelete.coverUrl)); } catch (err) { console.error("Failed to delete cover", err); }
+        }
+        if (albumToDelete.audioUrl) {
+          try { await deleteObject(ref(storage, albumToDelete.audioUrl)); } catch (err) { console.error("Failed to delete audio", err); }
+        }
+      }
+
       await deleteDoc(doc(db, 'albums', editingAlbumId)).catch(err => handleFirestoreError(err, OperationType.DELETE, `albums/${editingAlbumId}`));
       setShowAddModal(false);
       setImageFile(null);
+      setAudioFile(null);
       fetchInitialAlbums();
     } catch (error: any) {
       console.error("Error deleting album:", error);
@@ -1111,6 +1262,33 @@ export default function App() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Audio Snippet Upload (Optional)</label>
+                    <input 
+                      type="file" 
+                      accept="audio/mpeg, audio/wav, audio/ogg"
+                      onChange={e => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setAudioFile(e.target.files[0]);
+                        } else {
+                          setAudioFile(null);
+                        }
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600"
+                    />
+                    {newAlbum.audioUrl && !audioFile && (
+                      <div className="flex items-center justify-between mt-2 bg-white/5 p-3 rounded-xl border border-white/10">
+                        <span className="text-xs font-bold text-green-500">Аудиофайл загружен</span>
+                        <button
+                          type="button"
+                          onClick={() => setNewAlbum({ ...newAlbum, audioUrl: "" })}
+                          className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Description</label>
                     <textarea 
                       value={newAlbum.description}
@@ -1482,6 +1660,13 @@ export default function App() {
                       ) : null}
                     </div>
                   </div>
+
+                  {selectedAlbum.audioUrl && (
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-white/40">Превью</h3>
+                      <CustomAudioPlayer url={selectedAlbum.audioUrl} />
+                    </div>
+                  )}
 
                   {selectedAlbum.description && (
                     <div className="space-y-3">
