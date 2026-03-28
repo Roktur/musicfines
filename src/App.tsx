@@ -769,10 +769,16 @@ export default function App() {
     } catch (error: any) {
       console.error("Error saving album:", error);
       let errorMessage = "Failed to save album. Please check console for details.";
-      if (error instanceof Error) {
+      if (error instanceof Error && error.message && error.message !== "undefined" && error.message.trim() !== "") {
         try {
-          const parsed = error.message && error.message !== "undefined" ? JSON.parse(error.message) : {};
-          errorMessage = parsed.error || errorMessage;
+          // Check if the message looks like JSON before parsing
+          const trimmedMessage = error.message.trim();
+          if (trimmedMessage.startsWith('{') || trimmedMessage.startsWith('[')) {
+            const parsed = JSON.parse(trimmedMessage);
+            errorMessage = parsed.error || errorMessage;
+          } else {
+            errorMessage = error.message;
+          }
         } catch {
           errorMessage = error.message;
         }
@@ -828,10 +834,16 @@ export default function App() {
     } catch (error: any) {
       console.error("Error deleting album:", error);
       let errorMessage = "Failed to delete album. Please check console for details.";
-      if (error instanceof Error) {
+      if (error instanceof Error && error.message && error.message !== "undefined" && error.message.trim() !== "") {
         try {
-          const parsed = error.message && error.message !== "undefined" ? JSON.parse(error.message) : {};
-          errorMessage = parsed.error || errorMessage;
+          // Check if the message looks like JSON before parsing
+          const trimmedMessage = error.message.trim();
+          if (trimmedMessage.startsWith('{') || trimmedMessage.startsWith('[')) {
+            const parsed = JSON.parse(trimmedMessage);
+            errorMessage = parsed.error || errorMessage;
+          } else {
+            errorMessage = error.message;
+          }
         } catch {
           errorMessage = error.message;
         }
