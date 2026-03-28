@@ -541,7 +541,7 @@ export default function App() {
 
       const snapshot = await getDocs(q).catch(err => handleFirestoreError(err, OperationType.GET, 'albums'));
       if (!snapshot) return;
-      const fetchedAlbums = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+      const fetchedAlbums = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Album));
       setAlbums(fetchedAlbums);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === 20);
@@ -639,7 +639,7 @@ export default function App() {
 
       const snapshot = await getDocs(q).catch(err => handleFirestoreError(err, OperationType.GET, 'albums'));
       if (!snapshot) return;
-      const newAlbums = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
+      const newAlbums = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Album));
       
       setAlbums(prev => {
         const existingIds = new Set(prev.map(a => a.id));
