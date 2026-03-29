@@ -344,9 +344,41 @@ interface FirestoreErrorInfo {
   }
 }
 
+// Helper for safe JSON parsing
+const safeJsonParse = (str: any) => {
+  if (str === null || str === undefined) {
+    console.log("safeJsonParse received null or undefined:", str);
+    return null;
+  }
+  
+  if (typeof str !== 'string') {
+    console.log("safeJsonParse received non-string:", str, "Type:", typeof str);
+    return str;
+  }
+  
+  const trimmed = str.trim();
+  if (trimmed === "" || trimmed === "undefined" || trimmed === "null") {
+    console.log("safeJsonParse received empty, 'undefined', or 'null' string:", JSON.stringify(trimmed));
+    return null;
+  }
+  
+  // If it doesn't look like JSON, return the original string
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return trimmed;
+  }
+  
+  try {
+    return JSON.parse(trimmed);
+  } catch (e) {
+    console.warn("Safe JSON parse failed for string:", JSON.stringify(trimmed), "Type:", typeof trimmed, "Error:", e);
+    return trimmed;
+  }
+};
+
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage || "Unknown Firestore error",
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -430,6 +462,8 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [showOfertaModal, setShowOfertaModal] = useState(false);
+  const [showContactsModal, setShowContactsModal] = useState(false);
   
   // Form State
   const [newAlbum, setNewAlbum] = useState({
@@ -458,7 +492,7 @@ export default function App() {
       const adminStatus = u?.email?.toLowerCase() === "roktur@gmail.com";
       setIsAdmin(adminStatus);
       if (u) {
-        console.log("Logged in as:", u.email, "Admin status:", adminStatus);
+        // User is logged in
       }
     });
     return () => unsubscribe();
@@ -473,7 +507,7 @@ export default function App() {
       const combinedGenres = Array.from(new Set([...defaultGenres, ...fetchedGenres]));
       setGenres(["All", ...combinedGenres]);
     }, (error) => {
-      console.error("Error fetching genres:", error);
+      handleFirestoreError(error, OperationType.GET, 'genres');
     });
     return () => unsubscribe();
   }, []);
@@ -485,11 +519,15 @@ export default function App() {
         setLoadingNewArrivals(true);
         try {
           const q = query(collection(db, 'albums'), orderBy('createdAt', 'desc'), limit(3));
-          const snapshot = await getDocs(q);
+          const snapshot = await getDocs(q).catch(err => handleFirestoreError(err, OperationType.GET, 'albums'));
+          if (!snapshot) return;
           const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Album));
           setNewArrivals(fetched);
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching new arrivals:", error);
+          const parsed = safeJsonParse(error.message);
+          const errorMessage = parsed && typeof parsed === 'object' ? parsed.error : (typeof parsed === 'string' ? parsed : "Failed to fetch new arrivals.");
+          setAddError(errorMessage);
         } finally {
           setLoadingNewArrivals(false);
         }
@@ -545,8 +583,11 @@ export default function App() {
       setAlbums(fetchedAlbums);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === 20);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching albums:", error);
+      const parsed = safeJsonParse(error.message);
+      const errorMessage = parsed && typeof parsed === 'object' ? parsed.error : (typeof parsed === 'string' ? parsed : "Failed to fetch albums.");
+      setAddError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -649,8 +690,11 @@ export default function App() {
       
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
       setHasMore(snapshot.docs.length === 20);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading more albums:", error);
+      const parsed = safeJsonParse(error.message);
+      const errorMessage = parsed && typeof parsed === 'object' ? parsed.error : (typeof parsed === 'string' ? parsed : "Failed to load more albums.");
+      setAddError(errorMessage);
     } finally {
       setLoadingMore(false);
     }
@@ -769,17 +813,12 @@ export default function App() {
     } catch (error: any) {
       console.error("Error saving album:", error);
       let errorMessage = "Failed to save album. Please check console for details.";
-      if (error instanceof Error && error.message && error.message !== "undefined" && error.message.trim() !== "") {
-        try {
-          // Check if the message looks like JSON before parsing
-          const trimmedMessage = error.message.trim();
-          if (trimmedMessage.startsWith('{') || trimmedMessage.startsWith('[')) {
-            const parsed = JSON.parse(trimmedMessage);
-            errorMessage = parsed.error || errorMessage;
-          } else {
-            errorMessage = error.message;
-          }
-        } catch {
+      
+      if (error instanceof Error && error.message) {
+        const parsed = safeJsonParse(error.message);
+        if (parsed) {
+          errorMessage = parsed.error || error.message;
+        } else {
           errorMessage = error.message;
         }
       }
@@ -803,8 +842,11 @@ export default function App() {
       
       setShowAddGenreModal(false);
       setNewGenreName("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding genre:", error);
+      const parsed = safeJsonParse(error.message);
+      const errorMessage = parsed && typeof parsed === 'object' ? parsed.error : (typeof parsed === 'string' ? parsed : "Failed to add genre.");
+      setAddError(errorMessage);
     } finally {
       setLoadingMore(false);
     }
@@ -834,17 +876,12 @@ export default function App() {
     } catch (error: any) {
       console.error("Error deleting album:", error);
       let errorMessage = "Failed to delete album. Please check console for details.";
-      if (error instanceof Error && error.message && error.message !== "undefined" && error.message.trim() !== "") {
-        try {
-          // Check if the message looks like JSON before parsing
-          const trimmedMessage = error.message.trim();
-          if (trimmedMessage.startsWith('{') || trimmedMessage.startsWith('[')) {
-            const parsed = JSON.parse(trimmedMessage);
-            errorMessage = parsed.error || errorMessage;
-          } else {
-            errorMessage = error.message;
-          }
-        } catch {
+      
+      if (error instanceof Error && error.message) {
+        const parsed = safeJsonParse(error.message);
+        if (parsed) {
+          errorMessage = parsed.error || error.message;
+        } else {
           errorMessage = error.message;
         }
       }
@@ -865,7 +902,7 @@ export default function App() {
           await addDoc(collection(db, 'genres'), {
             name: genre,
             createdAt: serverTimestamp()
-          });
+          }).catch(err => handleFirestoreError(err, OperationType.CREATE, 'genres'));
         }
       }
 
@@ -884,11 +921,14 @@ export default function App() {
         await addDoc(collection(db, 'albums'), {
           ...album,
           createdAt: serverTimestamp()
-        });
+        }).catch(err => handleFirestoreError(err, OperationType.CREATE, 'albums'));
       }
       fetchInitialAlbums();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error seeding data:", error);
+      const parsed = safeJsonParse(error.message);
+      const errorMessage = parsed && typeof parsed === 'object' ? parsed.error : (typeof parsed === 'string' ? parsed : "Failed to seed data.");
+      setAddError(errorMessage);
     } finally {
       setIsSeeding(false);
     }
@@ -1704,6 +1744,133 @@ export default function App() {
                       </div>
                     </div>
                   )}
+
+                  <div className="space-y-3 pt-6 border-t border-white/5">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
+                      <Info className="w-3 h-3" /> Информация о покупке
+                    </h3>
+                    <p className="text-[10px] text-white/40 leading-relaxed uppercase tracking-wider">
+                      Вы приобретаете неисключительную лицензию на использование данного музыкального произведения в коммерческих целях (фоновое озвучивание заведений). После оплаты вы получите ссылку на скачивание архива с аудиофайлами высокого качества. Возврат цифрового товара после получения доступа не предусмотрен.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Public Oferta Modal */}
+      <AnimatePresence>
+        {showOfertaModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowOfertaModal(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl max-h-[80vh] overflow-y-auto bg-[#111] border border-white/10 rounded-3xl p-8 md:p-12 custom-scrollbar"
+            >
+              <button 
+                onClick={() => setShowOfertaModal(false)}
+                className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-colors z-10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="space-y-8 text-white/70">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase text-white mb-10">
+                  Публичная оферта
+                </h2>
+                
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold text-white uppercase tracking-tight">1. Общие положения</h3>
+                  <p className="text-sm leading-relaxed">
+                    Настоящая публичная оферта является официальным предложением Самозанятого Кочеткова Андрея Владимировича (далее — «Продавец») заключить договор купли-продажи неисключительной лицензии на использование музыкальных произведений в цифровом формате.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold text-white uppercase tracking-tight">2. Предмет договора</h3>
+                  <p className="text-sm leading-relaxed">
+                    Продавец предоставляет Покупателю право использования музыкальных произведений (неисключительную лицензию) для целей фонового озвучивания коммерческих и частных помещений. Лицензия передается путем предоставления ссылки на скачивание цифровых файлов после полной оплаты.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold text-white uppercase tracking-tight">3. Стоимость и порядок оплаты</h3>
+                  <p className="text-sm leading-relaxed">
+                    Стоимость лицензии указана на странице соответствующего альбома. Оплата производится в рублях РФ через платежную систему Robokassa. Обязательства Покупателя по оплате считаются исполненными с момента поступления денежных средств на счет Продавца.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold text-white uppercase tracking-tight">4. Условия возврата</h3>
+                  <p className="text-sm leading-relaxed bg-orange-500/10 border border-orange-500/20 p-6 rounded-2xl text-orange-500">
+                    <strong>Внимание:</strong> В соответствии с законодательством РФ, цифровой контент надлежащего качества не подлежит возврату или обмену после предоставления доступа к нему (скачивания). Совершая оплату, Покупатель подтверждает свое согласие с тем, что после получения ссылки на скачивание возврат денежных средств невозможен.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-lg font-bold text-white uppercase tracking-tight">5. Реквизиты продавца</h3>
+                  <div className="text-sm space-y-1 font-mono">
+                    <p>ФИО: Кочетков Андрей Владимирович</p>
+                    <p>ИНН: 501708966502</p>
+                    <p>Статус: Самозанятый (плательщик НПД)</p>
+                  </div>
+                </section>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Contacts Modal */}
+      <AnimatePresence>
+        {showContactsModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowContactsModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-3xl p-10 overflow-hidden"
+            >
+              <button 
+                onClick={() => setShowContactsModal(false)}
+                className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <h2 className="text-2xl font-bold uppercase tracking-tighter mb-8">
+                Контакты
+              </h2>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Email для связи</p>
+                  <a href="mailto:roktur@yandex.ru" className="text-xl font-bold hover:text-orange-500 transition-colors">roktur@yandex.ru</a>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Социальные сети</p>
+                  <a href="https://vk.com/musicfines" target="_blank" rel="noopener noreferrer" className="text-xl font-bold hover:text-orange-500 transition-colors">VK.COM/MUSICFINES</a>
+                </div>
+                <div className="pt-6 border-t border-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2">Техническая поддержка</p>
+                  <p className="text-sm text-white/60">Мы отвечаем на все запросы в течение 24 часов в рабочие дни.</p>
                 </div>
               </div>
             </motion.div>
@@ -1741,7 +1908,17 @@ export default function App() {
             <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-white/30">Контакты</h4>
             <ul className="space-y-4 text-sm font-medium">
               <li><a href="https://vk.com/musicfines" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 transition-colors">VK</a></li>
+              <li><button onClick={() => setShowContactsModal(true)} className="hover:text-orange-500 transition-colors">Связаться с нами</button></li>
             </ul>
+          </div>
+
+          <div className="space-y-6">
+            <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-white/30">Реквизиты</h4>
+            <div className="space-y-2 text-[10px] font-bold uppercase tracking-widest text-white/40">
+              <p>Самозанятый (плательщик НПД)</p>
+              <p>ФИО: Кочетков Андрей Владимирович</p>
+              <p>ИНН: 501708966502</p>
+            </div>
           </div>
         </div>
         
@@ -1750,8 +1927,8 @@ export default function App() {
             © 2026 <a href="https://vk.com/musicfines" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline underline-offset-4">Музыка без штрафов</a>. Все права защищены.
           </p>
           <div className="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-white/20">
+            <button onClick={() => setShowOfertaModal(true)} className="hover:text-white transition-colors">Публичная оферта</button>
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
           </div>
         </div>
       </footer>
