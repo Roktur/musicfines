@@ -224,7 +224,7 @@ const CustomSelect = ({ value, onChange, options }: { value: string, onChange: (
   );
 };
 
-const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { album: Album, index: number, isAdmin: boolean, onEdit: (album: Album) => void, onSelect: (album: Album) => void }) => (
+const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect, onBuy }: { album: Album, index: number, isAdmin: boolean, onEdit: (album: Album) => void, onSelect: (album: Album) => void, onBuy: (album: Album) => void }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -241,24 +241,12 @@ const AlbumCard = React.memo(({ album, index, isAdmin, onEdit, onSelect }: { alb
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-        {album.purchaseUrl ? (
-          <a 
-            href={album.purchaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500"
-          >
-            <ShoppingBag className="text-black w-6 h-6" />
-          </a>
-        ) : (
-          <button 
-            onClick={(e) => e.stopPropagation()}
-            className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500"
-          >
-            <ShoppingBag className="text-black w-6 h-6" />
-          </button>
-        )}
+        <button 
+          onClick={(e) => { e.stopPropagation(); onBuy(album); }}
+          className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500"
+        >
+          <ShoppingBag className="text-black w-6 h-6" />
+        </button>
         {isAdmin && (
           <button 
             onClick={(e) => { e.stopPropagation(); onEdit(album); }}
@@ -464,6 +452,11 @@ export default function App() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [showOfertaModal, setShowOfertaModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [checkoutAlbum, setCheckoutAlbum] = useState<Album | null>(null);
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   
   // Form State
   const [newAlbum, setNewAlbum] = useState({
@@ -489,7 +482,8 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      const adminStatus = u?.email?.toLowerCase() === "roktur@gmail.com";
+      const email = u?.email?.toLowerCase();
+      const adminStatus = email === "roktur@gmail.com" || email === "roktur@yandex.ru";
       setIsAdmin(adminStatus);
       if (u) {
         // User is logged in
@@ -537,6 +531,51 @@ export default function App() {
   }, [showNewArrivalsModal]);
 
   // Initial fetch
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutAlbum || !customerEmail) return;
+
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
+    try {
+      const price = checkoutAlbum.discount && checkoutAlbum.discount > 0 
+        ? Math.round(checkoutAlbum.price * (1 - checkoutAlbum.discount / 100))
+        : checkoutAlbum.price;
+
+      const response = await fetch('/api/create-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          albumId: checkoutAlbum.id,
+          albumName: checkoutAlbum.title,
+          price: price,
+          customerEmail: customerEmail,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при создании платежа');
+      }
+
+      const { paymentUrl } = await response.json();
+      window.location.href = paymentUrl;
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      setPaymentError(error.message || 'Произошла ошибка при переходе к оплате');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const openCheckout = (album: Album) => {
+    setCheckoutAlbum(album);
+    setShowCheckoutModal(true);
+    setPaymentError(null);
+  };
+
   const fetchInitialAlbums = useCallback(async () => {
     setLoading(true);
     try {
@@ -1155,7 +1194,7 @@ export default function App() {
         ) : filteredAlbums.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-16">
             {filteredAlbums.map((album, index) => (
-              <AlbumCard key={album.id} album={album} index={index} isAdmin={isAdmin} onEdit={openEditModal} onSelect={setSelectedAlbum} />
+              <AlbumCard key={album.id} album={album} index={index} isAdmin={isAdmin} onEdit={openEditModal} onSelect={setSelectedAlbum} onBuy={openCheckout} />
             ))}
           </div>
         ) : (
@@ -1656,16 +1695,12 @@ export default function App() {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  {selectedAlbum.purchaseUrl && (
-                    <a 
-                      href={selectedAlbum.purchaseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-black font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
-                      <ShoppingBag className="w-5 h-5" /> Купить альбом
-                    </a>
-                  )}
+                  <button 
+                    onClick={() => openCheckout(selectedAlbum)}
+                    className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-black font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <ShoppingBag className="w-5 h-5" /> Купить альбом
+                  </button>
                 </div>
 
                 <div className="space-y-8">
@@ -1755,6 +1790,97 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Checkout Modal */}
+      <AnimatePresence>
+        {showCheckoutModal && checkoutAlbum && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCheckoutModal(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-[#111] border border-white/10 rounded-3xl p-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold uppercase tracking-tighter">
+                  Оформление заказа
+                </h2>
+                <button 
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="p-2 hover:bg-white/5 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 mb-8 p-4 bg-white/5 rounded-2xl border border-white/5">
+                <img 
+                  src={checkoutAlbum.coverUrl} 
+                  alt={checkoutAlbum.title} 
+                  className="w-16 h-16 rounded-lg object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <h3 className="font-bold text-white truncate max-w-[200px]">{checkoutAlbum.title}</h3>
+                  <p className="text-xs text-white/40 uppercase tracking-widest">{checkoutAlbum.artist}</p>
+                  <p className="text-orange-500 font-bold mt-1">
+                    {checkoutAlbum.discount && checkoutAlbum.discount > 0 
+                      ? Math.round(checkoutAlbum.price * (1 - checkoutAlbum.discount / 100))
+                      : checkoutAlbum.price} ₽
+                  </p>
+                </div>
+              </div>
+
+              {paymentError && (
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-500 text-xs font-medium">
+                  {paymentError}
+                </div>
+              )}
+
+              <form onSubmit={handleCheckout} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Ваш Email</label>
+                  <input 
+                    required
+                    type="email" 
+                    value={customerEmail}
+                    onChange={e => setCustomerEmail(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
+                    placeholder="example@mail.ru"
+                  />
+                  <p className="text-[9px] text-white/30 uppercase tracking-wider leading-relaxed">
+                    На этот адрес будет отправлена ссылка на скачивание альбома после оплаты.
+                  </p>
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={isProcessingPayment}
+                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 disabled:cursor-not-allowed text-black font-bold uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Переход к оплате...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag className="w-5 h-5" /> Оплатить
+                    </>
+                  )}
+                </button>
+              </form>
             </motion.div>
           </div>
         )}
